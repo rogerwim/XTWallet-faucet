@@ -3,25 +3,55 @@ var answer = document.getElementById("answer");
 var send = document.getElementById("send");
 var responsedata = ''
 var isConnected = false;
+
+function onNetworkChange({networkHost, networkName}) {
+    console.log('Network changed', networkName, networkHost)
+}
+
+function onAccountChange({accountId, accountPublicKey}) {
+    console.log('Account changed', accountId, accountPublicKey)
+}
+
+function onPermissionRemoved({origin}) {
+    console.log('Permission removed', origin)
+}
+
+function onAccountRemoved({accountId}) {
+    console.log('Account removed', accountId)
+}
+
+let connectionListener = null;
+
 var onClick = function() {
     (async()=>{
-        const api = sig$.composeApi({
+        const ledger = sig$.LedgerClientFactory.createClient({
             nodeHost: 'https://europe3.testnet.signum.network'
         });
+        const {networkName, addressPrefix, valueSuffix } = await ledger.network.getNetworkInfo()
 
         const wallet = new sig$wallets.GenericExtensionWallet();
-        const {publicKey, connectionStatus, nodeHost, accountId} = await wallet.connect({
+        const connection = await wallet.connect({
             appName: "Example App",
-            nodeHost: "https://europe3.testnet.signum.network"
+            networkName
         });
+
+        // you can listen to all these events if you want
+        connectionListener = connection.listen({
+            onNetworkChanged: onNetworkChange,
+            onAccountChanged: onAccountChange,
+            onPermissionRemoved: onPermissionRemoved,
+            onAccountRemoved: onAccountRemoved,
+        });
+
+        const {accountId, currentNodeHost} = connection
 
         const newDiv = document.createElement("div");
         const newContent = document.createTextNode("You connected successfully");
         newDiv.appendChild(newContent);
         document.body.insertBefore(newDiv, answerAccount);
 
-        const accountIdAnswer = document.createTextNode("Your accountId: " + accountId + "\n");
-        const node = document.createTextNode("Your node host: " + nodeHost + "\n");
+        const accountIdAnswer = document.createTextNode(`Your accountId: ${accountId} - ${sig$.Address.create(accountId, addressPrefix).getReedSolomonAddress()}`);
+        const node = document.createTextNode("Your node host: " + currentNodeHost + "\n");
         answerAccount.appendChild(accountIdAnswer);
         answerNode.appendChild(node);
 
@@ -31,16 +61,16 @@ var onClick = function() {
         explorer.href = "https://chain.signum.network/address/" + accountId;
         document.body.appendChild(explorer);
 
-        api.account.getAccountBalance(accountId).then(balance=>{
-            const balUser = sig$util.Amount.fromPlanck(balance.balanceNQT).toString();
+        ledger.account.getAccountBalance(accountId).then(balance=>{
+            const balUser = sig$util.Amount.fromPlanck(balance.balanceNQT).getSigna();
             const balDiv = document.createElement('div');
-            const getBal = document.createTextNode("\nAccount Balance: " + balUser);
+            const getBal = document.createTextNode(`\nAccount Balance: ${balUser} ${valueSuffix}`);
             balDiv.appendChild(getBal);
             document.body.insertBefore(balDiv, balanceUser);
         }
         )
         const b = document.createElement('button');
-        b.innerHTML = "send SIGNA to this aderess";
+        b.innerHTML = `send ${valueSuffix} to this address`;
         var doRequest = function() {
             fetch("https://cryptodefrag.com:2222", {
                 method: "POST",
@@ -61,5 +91,6 @@ var onClick = function() {
     }
     )()
     login.removeEventListener("click", onClick, false);
+    connectionListener && connectionListener.unlisten()
 }
 login.addEventListener("click", onClick, false);
