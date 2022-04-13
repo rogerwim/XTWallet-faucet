@@ -1,16 +1,18 @@
 var login = document.getElementById("login");
 var answer = document.getElementById("answer");
-
-login.addEventListener("click", function() {
-    (async () => {
+var send = document.getElementById("send");
+var responsedata = ''
+var isConnected = false;
+var onClick = function() {
+    (async()=>{
         const api = sig$.composeApi({
-            nodeHost: 'https://europe.signum.network'
+            nodeHost: 'https://europe3.testnet.signum.network'
         });
 
         const wallet = new sig$wallets.GenericExtensionWallet();
         const {publicKey, connectionStatus, nodeHost, accountId} = await wallet.connect({
             appName: "Example App",
-            nodeHost: "https://europe.signum.network"   
+            nodeHost: "https://europe3.testnet.signum.network"
         });
 
         const newDiv = document.createElement("div");
@@ -29,32 +31,35 @@ login.addEventListener("click", function() {
         explorer.href = "https://chain.signum.network/address/" + accountId;
         document.body.appendChild(explorer);
 
-        api.account.getAccountBalance(accountId).then(balance => {
+        api.account.getAccountBalance(accountId).then(balance=>{
             const balUser = sig$util.Amount.fromPlanck(balance.balanceNQT).toString();
             const balDiv = document.createElement('div');
             const getBal = document.createTextNode("\nAccount Balance: " + balUser);
             balDiv.appendChild(getBal);
             document.body.insertBefore(balDiv, balanceUser);
-        })
-    })()
-},false);
-var logout = document.getElementById("logout");
-logout.addEventListener("click", function(){
-    location.reload();
-}, false);
-var donate = document.getElementById("donate");
-donate.addEventListener("click", function(){
-    return sig$util.createDeeplink({
-        payload: {
-            recipient: "S-DFHC-U26W-H5QH-68Q7C",
-            amountPlanck: sig$util.Amount.fromSigna('5.103635').getPlanck(),
-            feePlanck: sig$util.Amount.fromSigna('0.0735').getPlanck(),
-            message: '59b13cb7d10d5ead3b45b8e9039ebed100000000000000000000000000000000',
-            messageIsText: false,
-            immutable: false,
-            deadline: 1440,
-            encrypt: false
-        },
-        action: 'pay'
-    }, );
-}, false);
+        }
+        )
+        const b = document.createElement('button');
+        b.innerHTML = "send SIGNA to this aderess";
+        var doRequest = function() {
+            fetch("https://cryptodefrag.com:2222", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: accountId
+            }).then(resp=>resp.text()).then((dataStr)=>{
+                responsedata = dataStr
+                gobutton.appendChild(document.createElement('br'));
+                gobutton.appendChild(document.createTextNode("Response: " + dataStr))
+                b.removeEventListener("click", doRequest, false);
+            }
+            )
+        }
+        b.addEventListener("click", doRequest, false);
+        gobutton.appendChild(b)
+    }
+    )()
+    login.removeEventListener("click", onClick, false);
+}
+login.addEventListener("click", onClick, false);
